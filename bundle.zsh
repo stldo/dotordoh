@@ -70,7 +70,7 @@ USE_PROCD=1
 START=99
 STOP=01
 
-start_service() {
+start_supervisor() {
   procd_open_instance
 
   procd_set_param command "'"$BIN_FILE"'" auto
@@ -81,12 +81,17 @@ start_service() {
   procd_set_param stderr 1
 
   procd_close_instance
+}
 
+start_service() {
+  start_supervisor
   ("'"$BIN_FILE"'" wait && "'"$BIN_FILE"'" shield --boot) &
 }
 
-reload_service() {
-  "'"$BIN_FILE"'" shield
+restart_service() {
+  stop
+  start_supervisor
+  ("'"$BIN_FILE"'" wait && "'"$BIN_FILE"'" shield) &
 }
 '
 
@@ -218,7 +223,7 @@ DAEMON_TEMPLATE+=$'\n'"service_triggers() {"$'\n'
 
 for interface in ${=WAN_INTERFACES}; do
   DAEMON_TEMPLATE+="  procd_add_interface_trigger \"interface.*.up\" "
-  DAEMON_TEMPLATE+="$interface \"$DAEMON_FILE\" reload"$'\n'
+  DAEMON_TEMPLATE+="$interface \"$DAEMON_FILE\" restart"$'\n'
 done
 
 DAEMON_TEMPLATE+="}"$'\n'
