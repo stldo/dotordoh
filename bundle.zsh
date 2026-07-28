@@ -10,13 +10,14 @@ if [ "$COMMAND" = "run" ]; then
   . src/main.sh
   exit $?
 elif [ "$COMMAND" != "build" ]; then
+  printf 'Invalid command\n'
   exit 1
 fi
 
 [ -f "$ROOT_DIR/bundle.conf" ] && . "$ROOT_DIR/bundle.conf"
 
 DIST_DIR="$ROOT_DIR/dist"
-DIST_FILE="$(basename $ROOT_DIR).sh"
+DIST_FILE="$(basename $ROOT_DIR)"
 ROUTES_DIR="$ROOT_DIR/src/script"
 
 IMPORT_TEMPLATE=""
@@ -182,7 +183,8 @@ process_routes() {
   usage="${usage#|}"
   [ -n "$default_route" ] && usage="[$usage]"
 
-  ROUTES_TEMPLATE+="*)"$'\nprintf '"\$'Usage: \%s $usage\n' "$'"$0"\n;;\n\nesac\n'
+  ROUTES_TEMPLATE+="*)"$'\nprintf '"\$'Usage: \%s $usage\n' "
+  ROUTES_TEMPLATE+=$'"$0"\n;;\n\nesac\n'
 }
 
 process_routes
