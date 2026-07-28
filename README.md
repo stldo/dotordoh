@@ -42,21 +42,21 @@ Or execute directly from the source tree:
 ## Usage
 
 ```
-dotordoh [ROUTE] [OPTIONS]
+dotordoh [COMMAND] [OPTIONS]
 ```
 
-Available routes:
+Available commands:
 
-| Route | Description |
+| Command | Description |
 |-------|-------------|
 | `auto` | Automatically switch between DoT and DoH |
 | `dot` | Always use DNS-over-TLS |
 | `doh` | Always use DNS-over-HTTPS |
 | `shield` | Advertise router DNS on IPv4 and IPv6 |
 
-If no route is specified, the default route is `auto`.
+If no command is specified, the default command is `auto`.
 
-## Routes
+## Commands
 
 ### auto
 
@@ -114,6 +114,19 @@ do this automatically, which is useful when running `shield` at boot:
 
 ```sh
 dotordoh shield --boot
+```
+
+### wait
+
+Waits until the local dnsproxy instance is ready to accept DNS queries. It
+repeatedly queries the local dnsproxy instance until it becomes available, then
+exits successfully. If dnsproxy does not become ready within the timeout period,
+the command exits with an error.
+
+Example:
+
+```sh
+dotordoh wait
 ```
 
 ## Configuration
