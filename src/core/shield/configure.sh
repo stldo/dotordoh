@@ -14,6 +14,7 @@ shield_configure() {
   local \
     changed \
     interface \
+    ipv4_check \
     reload_wan \
     status \
     uci_dhcp_key \
@@ -36,7 +37,9 @@ shield_configure() {
 
   log "Configuring DHCPv4 DNS..."
 
-  if [ "$(set -f; set -- $uci_dns_value; echo "$#:$1")" != "1:$(global lan_ipv4)" ]; then
+  ipv4_check=$(set -f; set -- $uci_dns_value; echo "$#:$1")
+
+  if [ "$ipv4_check" != "1:$(global lan_ipv4)" ]; then
     uci_delete "$uci_dns_key" && changed=1
     uci_add_list "$uci_dns_key" "$(global lan_ipv4)" && changed=1
   fi
