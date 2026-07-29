@@ -212,7 +212,7 @@ process_routes() {
   [ -n "$default_route" ] && usage="[$usage]"
 
   ROUTES_TEMPLATE+="*)"$'\nprintf '"\$'Usage: \%s $usage\n' "
-  ROUTES_TEMPLATE+=$'"$0"\n;;\n\nesac\n'
+  ROUTES_TEMPLATE+=$'"$0"\n;;\nesac\n'
 }
 
 process_routes
