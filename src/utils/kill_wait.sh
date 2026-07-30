@@ -34,7 +34,7 @@ kill_wait() {
   done
 
   if kill -0 "$pid" 2>/dev/null; then
-    ( error "PID '$pid' still alive after kill_wait" )
+    ( error "PID \"$pid\" still alive after kill_wait" )
     return 1
   fi
 

@@ -8,7 +8,7 @@ timeout() {
   local duration elapsed pid
 
   duration="$1"
-  case "$duration" in ''|*[!0-9]*) error "Invalid duration '$duration'" ;; esac
+  case "$duration" in ''|*[!0-9]*) error "Invalid duration \"$duration\"" ;; esac
   shift
 
   [ "$#" -eq 0 ] && return 1

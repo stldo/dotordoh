@@ -2,7 +2,7 @@
 
 state() {
   case "$1" in
-    *[!a-zA-Z0-9_]*) error "Invalid characters in key '$1'" >&2 ;;
+    *[!a-zA-Z0-9_]*) error "Invalid characters in key \"$1\"" >&2 ;;
   esac
 
   if [ "$#" -eq 1 ]; then

@@ -6,7 +6,7 @@ lock() {
   local lock_file
 
   case "$1" in
-    ""|/*|*/|*//*|*[!a-z0-9_/-]*) error "Invalid lock name '$1'" ;;
+    ""|/*|*/|*//*|*[!a-z0-9_/-]*) error "Invalid lock name \"$1\"" ;;
   esac
 
   lock_file="/var/lock/$1.lock"
@@ -14,11 +14,11 @@ lock() {
   mkdir -p "$(dirname "$lock_file")" 2>/dev/null \
     || error "Cannot create lock dir"
 
-  exec 200>"$lock_file" || error "Cannot open lock file '$lock_file'"
+  exec 200>"$lock_file" || error "Cannot open lock file \"$lock_file\""
 
   if ! flock -n 200; then
     if [ $# -eq 1 ]; then
-      log "$1 is already running"
+      log "\"$1\" is already running"
     elif [ -n "$2" ]; then # Only log if argument $2 is not empty
       log "$2"
     fi
