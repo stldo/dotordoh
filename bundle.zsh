@@ -56,7 +56,7 @@ parse_arguments() {
     esac
 
     case "$key" in *[!0-9a-z_]*|"") continue ;; esac
-    key=$(printf '\''%s'\'' "$key" | tr '\''[:lower:]'\'' '\''[:upper:]'\'')
+    key=$(printf '\''%s'\'' "$key" | tr '\''a-z'\'' '\''A-Z'\'')
     eval "ARG_$key=\"\$value\""
   done
 }'"

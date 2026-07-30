@@ -40,7 +40,7 @@ parse_arguments() {
     esac
 
     case "$key" in *[!0-9a-z_]*|"") continue ;; esac
-    key=$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')
+    key=$(printf '%s' "$key" | tr 'a-z' 'A-Z')
     eval "ARG_$key=\"\$value\""
   done
 }
@@ -56,7 +56,7 @@ validate_route() {
   routes_tempfile=$(mktemp) || return 1
 
   if [ -f "$ROUTES_DIR/$default_route.sh" ]; then
-    usage="$(printf '%s' "$default_route" | tr '[:lower:]' '[:upper:]')"
+    usage="$(printf '%s' "$default_route" | tr 'a-z' 'A-Z')"
   else
     default_route=""
     usage=""
