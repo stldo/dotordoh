@@ -5,8 +5,23 @@ import core/shield/verify
 import utils/get_ipv4
 import utils/get_ula
 import utils/lock
+import utils/timeout
 
-lock dotordoh/shield "shield is already running"
+require nslookup
+require sleep
+
+lock dotordoh/shield "shield is already running" || exit 0
+
+DNS_SERVER="127.0.0.1:$DNSPROXY_PORT"
+REMAINING=30
+
+if [ "${ARG_WAIT:-0}" -eq 1 ]; then
+  while ! timeout 1 nslookup localhost "$DNS_SERVER" >/dev/null 2>&1; do
+    REMAINING=$((REMAINING - 1))
+    [ "$REMAINING" -gt 0 ] || error "dnsproxy must be ready for shield"
+    sleep 1
+  done
+fi
 
 global lan_ipv4 "$(get_ipv4)"
 global lan_ula "$(get_ula)"
