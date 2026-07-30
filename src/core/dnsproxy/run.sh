@@ -1,47 +1,68 @@
 #!/bin/ash
 
 import utils/kill_wait
-import utils/list_to_args
 
-require dnsproxy
-require sleep
+require https-dns-proxy
+require stubby
 
 global dnsproxy_mode ""
-global dnsproxy_pid ""
 
 dnsproxy_run() {
-  local args current_mode mode next_pid pid upstream
+  local bootstrap_dns current_mode mode service_starting service_stopping
 
-  args="\
-    --listen 127.0.0.1 \
-    --port $DNSPROXY_PORT \
-    --cache \
-    --cache-size $DNSPROXY_CACHE_SIZE \
-    --pending-requests-enabled \
-    $(list_to_args "$DNSPROXY_BOOTSTRAP" "--bootstrap")
-  "
-
-  mode=$1
+  mode="${1:-}"
 
   case "$mode" in
-    dot) upstream="tls://$DOT_DOMAIN" ;;
-    doh) upstream="https://$DOH_DOMAIN$DOH_PATH" ;;
+    dot)
+      service_starting=stubby
+      service_stopping=https-dns-proxy
+
+      uci delete stubby
+
+      uci set stubby.global='global'
+      uci set stubby.global.manual='0'
+      uci set stubby.global.round_robin_upstreams='1'
+      uci set stubby.global.tls_query_padding_blocksize='128'
+      uci add_list stubby.global.dns_transport_list='GETDNS_TRANSPORT_TLS'
+      uci add_list stubby.global.listen_address="127.0.0.1@$DNSPROXY_PORT"
+
+      for server in $DNSPROXY_BOOTSTRAP; do
+        uci add stubby resolver >/dev/null
+        uci set stubby.@resolver[-1].address="$server"
+        uci set stubby.@resolver[-1].tls_auth_name="$DOT_DOMAIN"
+      done
+
+      uci commit stubby
+      ;;
+    doh)
+      service_starting=https-dns-proxy
+      service_stopping=stubby
+
+      bootstrap_dns=""
+      for server in $DNSPROXY_BOOTSTRAP; do
+        bootstrap_dns="${doh_upstream_servers:+$doh_upstream_servers,}$server"
+      done
+
+      uci delete https-dns-proxy
+
+      uci set https-dns-proxy.dns='https-dns-proxy'
+      uci set https-dns-proxy.dns.listen_addr='127.0.0.1'
+      uci set https-dns-proxy.dns.listen_port="$DNSPROXY_PORT"
+      uci set https-dns-proxy.dns.resolver_url="https://$DOH_DOMAIN$DOH_PATH"
+      uci set https-dns-proxy.dns.bootstrap_dns="$bootstrap_dns"
+      uci set https-dns-proxy.dns.user='nobody'
+      uci set https-dns-proxy.dns.group='nogroup'
+
+      uci commit https-dns-proxy
+      ;;
     *) return 1 ;;
   esac
 
   current_mode="$(global dnsproxy_mode)"
-  pid="$(global dnsproxy_pid)"
 
-  if [ "$2" = exec ]; then
-    exec dnsproxy $args --upstream "$upstream"
-  elif [ "$current_mode" = "$mode" ] &&
-    [ -n "$pid" ] &&
-    kill -0 "$pid" 2>/dev/null
-  then
+  if [ "$current_mode" = "$mode" ] && service "$service_starting" running; then
     return 0
-  fi
-
-  if [ -z "$current_mode" ] || [ -z "$pid" ] ; then
+  elif [ -z "$current_mode" ]; then
     log "Starting dnsproxy in $mode mode..."
   elif [ "$current_mode" = "$mode" ]; then
     log "Restarting dnsproxy in $mode mode..."
@@ -49,24 +70,22 @@ dnsproxy_run() {
     log "Switching dnsproxy from $current_mode to $mode..."
   fi
 
-  kill_wait "$pid"
-
   global dnsproxy_mode ""
-  global dnsproxy_pid ""
 
-  dnsproxy $args --upstream "$upstream" &
-
-  next_pid="$!"
+  service "$service_starting" enable
+  service "$service_starting" start
 
   sleep 1
 
-  kill -0 "$next_pid" 2>/dev/null || {
-    ( error "Failed to start dnsproxy" )
+  if ! service "$service_starting" running; then
+    error "Failed to start dnsproxy"
     return 1
-  }
+  fi
+
+  service "$service_stopping" stop 2>/dev/null
+  service "$service_stopping" disable 2>/dev/null
 
   log "dnsproxy listening in \"$mode\" mode"
 
   global dnsproxy_mode "$mode"
-  global dnsproxy_pid "$next_pid"
 }

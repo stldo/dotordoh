@@ -91,7 +91,10 @@ reload_service() {
 }
 
 stop_service() {
-  killall dnsproxy 2>/dev/null || true
+  service https-dns-proxy stop 2>/dev/null
+  service https-dns-proxy disable 2>/dev/null
+  service stubby stop 2>/dev/null
+  service stubby disable 2>/dev/null
 }
 '
 

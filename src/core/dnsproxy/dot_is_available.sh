@@ -4,7 +4,7 @@ import utils/timeout
 
 require nc
 
-dnsproxy_should_use_dot() {
+dnsproxy_dot_is_available() {
   local status
 
   timeout "$1" nc "$DOT_DOMAIN" "853" </dev/null >/dev/null 2>&1

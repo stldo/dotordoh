@@ -1,8 +1,7 @@
 #!/bin/ash
 
-import core/dnsproxy/keepalive
+import core/dnsproxy/dot_is_available
 import core/dnsproxy/run
-import core/dnsproxy/should_use_dot
 import utils/lock
 
 require killall
@@ -20,9 +19,7 @@ require sleep
 # - Any opposite probe result immediately resets the streak, causing
 #   probes to become frequent again until stability is re-established.
 
-lock dotordoh/auto "auto mode is already running" || exit 0
-
-killall dnsproxy 2>/dev/null || true
+lock dotordoh/monitor "monitor mode is already running" || exit 0
 
 CONFIDENCE=1
 RETRIES=0
@@ -32,14 +29,10 @@ MAX_RETRIES=$((
   $DNSPROXY_AUTO_MAX_CONFIDENCE
 ))
 
-trap 'kill_wait "$(global dnsproxy_pid)"; exit 130' INT TERM
-trap 'kill_wait "$(global dnsproxy_pid)"' EXIT
 trap 'CONFIDENCE=1; RETRIES=0' HUP
 
 while true; do
-  dnsproxy_keepalive
-
-  if dnsproxy_should_use_dot "$CONFIDENCE"; then
+  if dnsproxy_dot_is_available "$CONFIDENCE"; then
     [ "$RETRIES" -lt 1 ] && RETRIES=0
     RETRIES=$((RETRIES + 1))
 

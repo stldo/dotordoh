@@ -2,8 +2,8 @@
 
 Automatically chooses the best encrypted DNS transport for OpenWrt.
 
-DoTorDoH uses `dnsproxy` to transparently switch between
-**DNS-over-TLS (DoT)** and **DNS-over-HTTPS (DoH)** depending on network
+DoTorDoH uses `stubby` (DoT) and `https_dns_proxy` (DoH) to transparently switch
+between **DNS-over-TLS (DoT)** and **DNS-over-HTTPS (DoH)** depending on network
 conditions. On networks where outbound TCP/853 is blocked, it automatically
 falls back to DoH. When DoT becomes available again, it switches back once
 confidence in its availability is high enough.
@@ -49,18 +49,16 @@ Available commands:
 
 | Command | Description |
 |-------|-------------|
-| `auto` | Automatically switch between DoT and DoH |
-| `dot` | Always use DNS-over-TLS |
-| `doh` | Always use DNS-over-HTTPS |
+| `monitor` | Automatically switch between DoT and DoH |
 | `shield` | Advertise router DNS on IPv4 and IPv6 |
 
-If no command is specified, the default command is `auto`.
+If no command is specified, the default command is `monitor`.
 
 ## Commands
 
-### auto
+### monitor
 
-Starts `dnsproxy` and continuously monitors DoT availability. When TCP port
+Starts the resolver and continuously monitors DoT availability. When TCP port
 **853** is reachable, DoTorDoH uses DoT; otherwise, it switches to DoH.
 Switching only occurs after several consecutive successful or failed probes,
 which avoids oscillating between modes during unstable connectivity.
@@ -68,33 +66,13 @@ which avoids oscillating between modes during unstable connectivity.
 Example:
 
 ```sh
-dotordoh auto
-```
-
-### dot
-
-Runs `dnsproxy` using DNS-over-TLS.
-
-Example:
-
-```sh
-dotordoh dot
-```
-
-### doh
-
-Runs `dnsproxy` using DNS-over-HTTPS.
-
-Example:
-
-```sh
-dotordoh doh
+dotordoh monitor
 ```
 
 ### shield
 
 Configures the local OpenWrt DNS services to forward all client queries
-through the local `dnsproxy` instance, overwriting WISP, ISP, and other DNS
+through the local resolver instance, overwriting WISP, ISP, and other DNS
 configurations.
 
 - Disables PeerDNS on WAN interfaces
@@ -116,17 +94,15 @@ do this automatically, which is useful when running `shield` at boot:
 dotordoh shield --boot
 ```
 
-### wait
-
-Waits until the local dnsproxy instance is ready to accept DNS queries. It
-repeatedly queries the local dnsproxy instance until it becomes available, then
-exits successfully. If dnsproxy does not become ready within the timeout period,
-the command exits with an error.
+Waits until the local resolver instance is ready to accept DNS queries. It
+repeatedly queries the local resolver until it becomes available, then
+exits successfully. If the resolver does not become ready within the timeout
+period, the command exits with an error.
 
 Example:
 
 ```sh
-dotordoh wait
+dotordoh shield --wait
 ```
 
 ## Configuration
@@ -165,15 +141,16 @@ Likewise, repeated failures eventually trigger a switch back to DoH.
 
 The project relies on standard OpenWrt utilities, including:
 
-- dnsproxy
-- uci
-- ubus
-- jsonfilter
+- https_dns_proxy
 - ip
+- jsonfilter
 - logger
-- nslookup
 - nc
+- nslookup
 - sleep
+- stubby
+- ubus
+- uci
 
 ## License
 
