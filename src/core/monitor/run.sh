@@ -1,6 +1,10 @@
 #!/bin/ash
 
-import utils/kill_wait
+import utils/uci/add
+import utils/uci/add_list
+import utils/uci/commit
+import utils/uci/delete
+import utils/uci/set
 
 require https-dns-proxy
 require stubby
@@ -17,22 +21,22 @@ monitor_run() {
       service_starting=stubby
       service_stopping=https-dns-proxy
 
-      uci delete stubby
+      uci_delete stubby
 
-      uci set stubby.global='global'
-      uci set stubby.global.manual='0'
-      uci set stubby.global.round_robin_upstreams='1'
-      uci set stubby.global.tls_query_padding_blocksize='128'
-      uci add_list stubby.global.dns_transport_list='GETDNS_TRANSPORT_TLS'
-      uci add_list stubby.global.listen_address="127.0.0.1@$LOCAL_PORT"
+      uci_set stubby.global "global"
+      uci_set stubby.global.manual "0"
+      uci_set stubby.global.round_robin_upstreams "1"
+      uci_set stubby.global.tls_query_padding_blocksize "128"
+      uci_add_list stubby.global.dns_transport_list "GETDNS_TRANSPORT_TLS"
+      uci_add_list stubby.global.listen_address "127.0.0.1@$LOCAL_PORT"
 
       for server in $BOOTSTRAP_SERVER; do
-        uci add stubby resolver >/dev/null
-        uci set stubby.@resolver[-1].address="$server"
-        uci set stubby.@resolver[-1].tls_auth_name="$DOT_DOMAIN"
+        uci_add stubby resolver >/dev/null
+        uci_set stubby.@resolver[-1].address="$server"
+        uci_set stubby.@resolver[-1].tls_auth_name="$DOT_DOMAIN"
       done
 
-      uci commit stubby
+      uci_commit stubby
       ;;
     doh)
       service_starting=https-dns-proxy
@@ -43,17 +47,17 @@ monitor_run() {
         bootstrap_dns="${doh_upstream_servers:+$doh_upstream_servers,}$server"
       done
 
-      uci delete https-dns-proxy
+      uci_delete https-dns-proxy
 
-      uci set https-dns-proxy.dns='https-dns-proxy'
-      uci set https-dns-proxy.dns.listen_addr='127.0.0.1'
-      uci set https-dns-proxy.dns.listen_port="$LOCAL_PORT"
-      uci set https-dns-proxy.dns.resolver_url="https://$DOH_DOMAIN$DOH_PATH"
-      uci set https-dns-proxy.dns.bootstrap_dns="$bootstrap_dns"
-      uci set https-dns-proxy.dns.user='nobody'
-      uci set https-dns-proxy.dns.group='nogroup'
+      uci_set https-dns-proxy.dns="https-dns-proxy"
+      uci_set https-dns-proxy.dns.listen_addr="127.0.0.1"
+      uci_set https-dns-proxy.dns.listen_port="$LOCAL_PORT"
+      uci_set https-dns-proxy.dns.resolver_url="https://$DOH_DOMAIN$DOH_PATH"
+      uci_set https-dns-proxy.dns.bootstrap_dns="$bootstrap_dns"
+      uci_set https-dns-proxy.dns.user="nobody"
+      uci_set https-dns-proxy.dns.group="nogroup"
 
-      uci commit https-dns-proxy
+      uci_commit https-dns-proxy
       ;;
     *) return 1 ;;
   esac
