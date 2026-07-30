@@ -1,5 +1,8 @@
 #!/bin/ash
 
+import utils/service/is
+import utils/service/powerup
+import utils/service/shutdown
 import utils/uci/add
 import utils/uci/add_list
 import utils/uci/commit
@@ -12,7 +15,7 @@ require stubby
 state mode ""
 
 monitor_run() {
-  local bootstrap_dns current_mode mode service_starting service_stopping
+  local bootstrap_dns current_mode mode server service_starting service_stopping
 
   current_mode="$(state mode)"
   mode="${1:-}"
@@ -23,7 +26,7 @@ monitor_run() {
     *) return 1 ;;
   esac
 
-  if [ "$mode" = "$current_mode" ] && service "$service_starting" running; then
+  if [ "$mode" = "$current_mode" ] && service_is "up" "$service_starting"; then
     return 0
   fi
 
@@ -69,29 +72,27 @@ monitor_run() {
   esac
 
   if [ -z "$current_mode" ]; then
-    log "Starting in $mode mode..."
+    log "Starting in \"$mode\" mode..."
   elif [ "$current_mode" = "$mode" ]; then
-    log "Restarting in $mode mode..."
+    log "Restarting in \"$mode\" mode..."
   else
-    log "Switching from $current_mode to $mode..."
+    log "Switching from \"$current_mode\" to \"$mode\"..."
   fi
 
-  service "$service_stopping" stop 2>/dev/null
-  service "$service_stopping" disable 2>/dev/null
-
+  service_shutdown "$service_stopping"
   state mode ""
-
-  service "$service_starting" enable
-  service "$service_starting" start
+  service_powerup "$service_starting"
 
   sleep 1
 
-  if ! service "$service_starting" running; then
+  if ! service_is "up" "$service_starting"; then
     ( error "Failed to start \"$mode\" mode" )
     return 1
   fi
 
-  log "Listening in \"$mode\" mode"
-
   state mode "$mode"
+  service_is $service_stopping
+  service_is $service_starting
+
+  log "Listening in \"$mode\" mode"
 }

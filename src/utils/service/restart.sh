@@ -1,6 +1,6 @@
 #!/bin/ash
 
-restart_services() {
+service_restart() {
   local script service status
 
   status=0
@@ -9,10 +9,10 @@ restart_services() {
     script="/etc/init.d/${service}"
 
     if [ ! -x "$script" ]; then
-      ( error "Service '$service' not found or not executable" )
+      ( error "Service \"$service\" not found or not executable" )
       status=1
     elif ! "$script" restart; then
-      ( error "Service '$service' restart failed" )
+      ( error "Service \"$service\" restart failed" )
       status=1
     fi
   done

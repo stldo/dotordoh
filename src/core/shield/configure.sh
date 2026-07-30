@@ -1,6 +1,6 @@
 #!/bin/ash
 
-import utils/restart_services
+import utils/service/restart
 import utils/uci/add_list
 import utils/uci/commit
 import utils/uci/delete
@@ -69,7 +69,7 @@ shield_configure() {
 
   [ "$status" -ne 0 ] && return 1
 
-  restart_services dnsmasq odhcpd || return 1
+  service_restart dnsmasq odhcpd || return 1
 
   if [ "$reload_wan" -eq 1 ]; then
     log "Reloading wan interfaces to apply PeerDNS changes..."
@@ -77,7 +77,7 @@ shield_configure() {
     for interface in $WAN_INTERFACES; do
       uci_exists "network.$interface" || continue
       ifup "$interface" >/dev/null 2>&1 || {
-        ( error "Failed to bring up $interface" )
+        ( error "Failed to bring up \"$interface\"" )
         status=1
       }
     done

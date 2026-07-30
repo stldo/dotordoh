@@ -3,6 +3,7 @@
 import core/monitor/dot_is_available
 import core/monitor/run
 import utils/lock
+import utils/service/shutdown
 
 require sleep
 
@@ -29,25 +30,24 @@ MAX_RETRIES=$((
   $MONITOR_MAX_CONFIDENCE
 ))
 
-monitor_cleanup() {
-  [ "$CLEANING_UP" -eq 1 ] && return
+service_cleanup() {
+  [ "${1:-$CLEANING_UP}" -eq 1 ] && return
+  [ "${1:-1}" -ne 0 ] && CLEANING_UP=1
 
-  CLEANING_UP=1
-
-  service https-dns-proxy stop 2>/dev/null
-  service stubby stop 2>/dev/null
-  service https-dns-proxy disable 2>/dev/null
-  service stubby disable 2>/dev/null
+  service_shutdown https-dns-proxy
+  service_shutdown stubby
 }
 
-monitor_terminate() {
-  monitor_cleanup
+service_terminate() {
+  service_cleanup
   exit 0
 }
 
-trap monitor_cleanup EXIT
-trap monitor_terminate INT TERM
+trap service_cleanup EXIT
+trap service_terminate INT TERM
 trap 'CONFIDENCE=1; RETRIES=0' HUP
+
+service_cleanup 0
 
 while true; do
   if monitor_dot_is_available "$CONFIDENCE"; then
