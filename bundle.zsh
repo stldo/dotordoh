@@ -70,7 +70,7 @@ USE_PROCD=1
 START=99
 STOP=01
 
-start_supervisor() {
+start_service() {
   procd_open_instance
 
   procd_set_param command "'"$BIN_FILE"'" auto
@@ -81,17 +81,17 @@ start_supervisor() {
   procd_set_param stderr 1
 
   procd_close_instance
+
+  ("'"$BIN_FILE"'" shield --boot --wait) &
 }
 
-start_service() {
-  start_supervisor
-  ("'"$BIN_FILE"'" wait && "'"$BIN_FILE"'" shield --boot) &
+reload_service() {
+  procd_send_signal dotordoh main HUP 2>/dev/null || true
+  ("'"$BIN_FILE"'" shield --wait) &
 }
 
-restart_service() {
-  stop
-  start_supervisor
-  ("'"$BIN_FILE"'" wait && "'"$BIN_FILE"'" shield) &
+stop_service() {
+  killall dnsproxy 2>/dev/null || true
 }
 '
 
@@ -220,12 +220,13 @@ process_routes
 VARS_TEMPLATE+="unset -f is_argument parse_arguments"$'\n\nreadonly ROUTE'
 
 DAEMON_TEMPLATE+=$'\n'"service_triggers() {"$'\n'
+DAEMON_TEMPLATE+="  procd_open_trigger"$'\n'
 
 for interface in ${=WAN_INTERFACES}; do
-  DAEMON_TEMPLATE+="  procd_add_interface_trigger \"interface.*.up\" "
-  DAEMON_TEMPLATE+="$interface \"$DAEMON_FILE\" restart"$'\n'
+  DAEMON_TEMPLATE+="  procd_add_reload_interface_trigger \"$interface\""$'\n'
 done
 
+DAEMON_TEMPLATE+="  procd_close_trigger"$'\n'
 DAEMON_TEMPLATE+="}"$'\n'
 
 rm -rf "$DIST_DIR"

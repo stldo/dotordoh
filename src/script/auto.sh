@@ -3,8 +3,9 @@
 import core/dnsproxy/keepalive
 import core/dnsproxy/run
 import core/dnsproxy/should_use_dot
+import utils/lock
 
-require pgrep
+require killall
 require sleep
 
 # - Probe DoT connectivity and switch between DoT and DoH accordingly.
@@ -19,7 +20,9 @@ require sleep
 # - Any opposite probe result immediately resets the streak, causing
 #   probes to become frequent again until stability is re-established.
 
-pgrep dnsproxy >/dev/null && error "dnsproxy is already running"
+lock dotordoh/auto "auto mode is already running" || exit 0
+
+killall dnsproxy 2>/dev/null || true
 
 CONFIDENCE=1
 RETRIES=0
@@ -31,6 +34,7 @@ MAX_RETRIES=$((
 
 trap 'kill_wait "$(global dnsproxy_pid)"; exit 130' INT TERM
 trap 'kill_wait "$(global dnsproxy_pid)"' EXIT
+trap 'CONFIDENCE=1; RETRIES=0' HUP
 
 while true; do
   dnsproxy_keepalive
@@ -62,8 +66,8 @@ while true; do
   CONFIDENCE=$((DIVIDEND / $DNSPROXY_AUTO_CONFIDENCE_FACTOR))
 
   if [ "$ABS_RETRIES" -ge "$DNSPROXY_AUTO_RETRIES" ]; then
-    sleep "$((CONFIDENCE * $DNSPROXY_AUTO_SLEEP_FACTOR))" || exit
+    sleep "$((CONFIDENCE * $DNSPROXY_AUTO_SLEEP_FACTOR))" & wait $!
   else
-    sleep 1 || exit
+    sleep 1 & wait $!
   fi
 done
