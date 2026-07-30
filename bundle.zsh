@@ -73,7 +73,7 @@ STOP=01
 start_service() {
   procd_open_instance
 
-  procd_set_param command "'"$BIN_FILE"'" auto
+  procd_set_param command "'"$BIN_FILE"'" monitor
 
   procd_set_param respawn 3600 5 5
   procd_set_param term_timeout 5

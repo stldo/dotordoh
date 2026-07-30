@@ -112,7 +112,7 @@ Configuration can be customized through `script.conf`.
 Example:
 
 ```sh
-DNSPROXY_PORT=5453
+LOCAL_PORT=5453
 
 DOH_DOMAIN="cloudflare-dns.com"
 DOH_PATH="/dns-query"

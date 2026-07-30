@@ -12,13 +12,13 @@ require sleep
 
 lock dotordoh/shield "shield is already running" || exit 0
 
-DNS_SERVER="127.0.0.1:$DNSPROXY_PORT"
+DNS_SERVER="127.0.0.1:$LOCAL_PORT"
 REMAINING=30
 
 if [ "${ARG_WAIT:-0}" -eq 1 ]; then
   while ! timeout 1 nslookup localhost "$DNS_SERVER" >/dev/null 2>&1; do
     REMAINING=$((REMAINING - 1))
-    [ "$REMAINING" -gt 0 ] || error "dnsproxy must be ready for shield"
+    [ "$REMAINING" -gt 0 ] || error "monitor is not ready"
     sleep 1
   done
 fi
