@@ -11,5 +11,5 @@ log() {
   fi
 
   logger -t "dotordoh" "$level $*"
-  printf '%s %s [dotordoh] %s\n' "$(date '+%Y/%m/%d %H:%M:%S       ')" "$level" "$*"
+  printf '%-26s %s [dotordoh] %s\n' "$(date '+%Y/%m/%d %H:%M:%S')" "$level" "$*"
 }
