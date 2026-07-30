@@ -1,5 +1,6 @@
 #!/bin/ash
 
+import utils/local_server_is_ready
 import utils/timeout
 import utils/uci/exists
 import utils/uci/get
@@ -44,7 +45,7 @@ shield_verify() {
   timeout 3 nslookup localhost "$(state lan_ipv4)" >/dev/null 2>&1
   assert $? "dnsmasq is reachable and responding"
 
-  timeout 3 nslookup localhost 127.0.0.1:"$LOCAL_PORT" >/dev/null 2>&1
+  local_server_is_ready 3
   assert $? "dotordoh service is reachable and responding"
 
   if [ "$success" -eq 1 ]; then

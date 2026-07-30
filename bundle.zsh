@@ -71,7 +71,7 @@ START=99
 STOP=01
 
 start_service() {
-  procd_open_instance
+  procd_open_instance main
 
   procd_set_param command "'"$BIN_FILE"'" monitor
 
@@ -214,7 +214,7 @@ process_routes() {
   usage="${usage#|}"
   [ -n "$default_route" ] && usage="[$usage]"
 
-  ROUTES_TEMPLATE+="*)"$'\nprintf '"\$'Usage: \%s $usage\n' "
+  ROUTES_TEMPLATE+="*)"$'\nprintf '"\$'Usage: %s $usage\n' "
   ROUTES_TEMPLATE+=$'"$0"\n;;\nesac\n'
 }
 

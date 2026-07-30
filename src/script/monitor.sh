@@ -4,7 +4,6 @@ import core/monitor/dot_is_available
 import core/monitor/run
 import utils/lock
 
-require killall
 require sleep
 
 # - Probe DoT connectivity and switch between DoT and DoH accordingly.
@@ -21,6 +20,7 @@ require sleep
 
 lock dotordoh/monitor "monitor mode is already running" || exit 0
 
+CLEANING_UP=0
 CONFIDENCE=1
 RETRIES=0
 
@@ -29,6 +29,24 @@ MAX_RETRIES=$((
   $MONITOR_MAX_CONFIDENCE
 ))
 
+monitor_cleanup() {
+  [ "$CLEANING_UP" -eq 1 ] && return
+
+  CLEANING_UP=1
+
+  service https-dns-proxy stop 2>/dev/null
+  service stubby stop 2>/dev/null
+  service https-dns-proxy disable 2>/dev/null
+  service stubby disable 2>/dev/null
+}
+
+monitor_terminate() {
+  monitor_cleanup
+  exit 0
+}
+
+trap monitor_cleanup EXIT
+trap monitor_terminate INT TERM
 trap 'CONFIDENCE=1; RETRIES=0' HUP
 
 while true; do
