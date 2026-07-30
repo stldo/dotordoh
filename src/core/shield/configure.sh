@@ -39,16 +39,16 @@ shield_configure() {
 
   ipv4_check=$(set -f; set -- $uci_dns_value; echo "$#:$1")
 
-  if [ "$ipv4_check" != "1:$(global lan_ipv4)" ]; then
+  if [ "$ipv4_check" != "1:$(state lan_ipv4)" ]; then
     uci_delete "$uci_dns_key" && changed=1
-    uci_add_list "$uci_dns_key" "$(global lan_ipv4)" && changed=1
+    uci_add_list "$uci_dns_key" "$(state lan_ipv4)" && changed=1
   fi
 
   log "Configuring DHCPv6 / RDNSS..."
 
   uci_set "${uci_dhcp_key}.dhcpv6" "server" && changed=1
   uci_set "${uci_dhcp_key}.ra" "server" && changed=1
-  uci_set "${uci_dhcp_key}.ra_dns" "$(global lan_ula)" && changed=1
+  uci_set "${uci_dhcp_key}.ra_dns" "$(state lan_ula)" && changed=1
 
   if [ "$changed" -eq 0 ]; then
     log "Configuration already up-to-date"

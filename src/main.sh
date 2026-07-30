@@ -87,10 +87,10 @@ validate_route() {
 }
 
 . "$ROOT_DIR/src/builtin/error.sh"
-. "$ROOT_DIR/src/builtin/global.sh"
 . "$ROOT_DIR/src/builtin/import.sh"
 . "$ROOT_DIR/src/builtin/log.sh"
 . "$ROOT_DIR/src/builtin/require.sh"
+. "$ROOT_DIR/src/builtin/state.sh"
 
 # Check required commands here to avoid circular references
 require date

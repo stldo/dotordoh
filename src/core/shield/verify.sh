@@ -29,7 +29,7 @@ shield_verify() {
     assert $? "network.$interface.peerdns PeerDNS disabled"
   done
 
-  [ "$(uci_get "${uci_dhcp_key}.dns")" = "$(global lan_ipv4)" ]
+  [ "$(uci_get "${uci_dhcp_key}.dns")" = "$(state lan_ipv4)" ]
   assert $? "DHCPv4 advertises router DNS"
 
   [ "$(uci_get "${uci_dhcp_key}.dhcpv6")" = "server" ]
@@ -38,10 +38,10 @@ shield_verify() {
   [ "$(uci_get "${uci_dhcp_key}.ra")" = "server" ]
   assert $? "Router Advertisements enabled"
 
-  [ "$(uci_get "${uci_dhcp_key}.ra_dns")" = "$(global lan_ula)" ]
+  [ "$(uci_get "${uci_dhcp_key}.ra_dns")" = "$(state lan_ula)" ]
   assert $? "IPv6 RDNSS advertises router ULA"
 
-  timeout 3 nslookup localhost "$(global lan_ipv4)" >/dev/null 2>&1
+  timeout 3 nslookup localhost "$(state lan_ipv4)" >/dev/null 2>&1
   assert $? "dnsmasq is reachable and responding"
 
   timeout 3 nslookup localhost 127.0.0.1:"$DNSPROXY_PORT" >/dev/null 2>&1

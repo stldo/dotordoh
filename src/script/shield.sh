@@ -23,8 +23,8 @@ if [ "${ARG_WAIT:-0}" -eq 1 ]; then
   done
 fi
 
-global lan_ipv4 "$(get_ipv4)"
-global lan_ula "$(get_ula)"
+state lan_ipv4 "$(get_ipv4)"
+state lan_ula "$(get_ula)"
 
 shield_configure "$ARG_BOOT"
 shield_verify

@@ -5,7 +5,7 @@ import utils/kill_wait
 require https-dns-proxy
 require stubby
 
-global dnsproxy_mode ""
+state dnsproxy_mode ""
 
 dnsproxy_run() {
   local bootstrap_dns current_mode mode service_starting service_stopping
@@ -58,7 +58,7 @@ dnsproxy_run() {
     *) return 1 ;;
   esac
 
-  current_mode="$(global dnsproxy_mode)"
+  current_mode="$(state dnsproxy_mode)"
 
   if [ "$current_mode" = "$mode" ] && service "$service_starting" running; then
     return 0
@@ -70,7 +70,7 @@ dnsproxy_run() {
     log "Switching dnsproxy from $current_mode to $mode..."
   fi
 
-  global dnsproxy_mode ""
+  state dnsproxy_mode ""
 
   service "$service_starting" enable
   service "$service_starting" start
@@ -87,5 +87,5 @@ dnsproxy_run() {
 
   log "dnsproxy listening in \"$mode\" mode"
 
-  global dnsproxy_mode "$mode"
+  state dnsproxy_mode "$mode"
 }
