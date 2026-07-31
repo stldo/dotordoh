@@ -37,7 +37,7 @@ shield_configure() {
 
   log "Configuring DHCPv4 DNS..."
 
-  ipv4_check=$(set -f; set -- $uci_dns_value; echo "$#:$1")
+  ipv4_check=$(set -f; set -- $uci_dns_value; printf '%s' "$#:$1")
 
   if [ "$ipv4_check" != "1:$(state lan_ipv4)" ]; then
     uci_delete "$uci_dns_key" && changed=1
