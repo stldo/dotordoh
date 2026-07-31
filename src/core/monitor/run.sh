@@ -32,7 +32,7 @@ monitor_run() {
 
   case "$mode" in
     doh)
-      uci_delete https-dns-proxy
+      uci_delete https-dns-proxy.dns
 
       bootstrap_dns=""
 
@@ -51,7 +51,11 @@ monitor_run() {
       uci_commit https-dns-proxy
       ;;
     dot)
-      uci_delete stubby
+      uci_delete stubby.global
+
+      while uci_exists "stubby.@resolver[0]"; do
+        uci_delete "stubby.@resolver[0]"
+      done
 
       uci_set stubby.global "global"
       uci_set stubby.global.manual "0"
