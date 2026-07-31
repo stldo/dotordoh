@@ -1,6 +1,6 @@
 #!/bin/ash
 
-import core/monitor/dot_is_available
+import core/monitor/find_mode
 import core/monitor/run
 import utils/lock
 import utils/service/shutdown
@@ -23,6 +23,7 @@ lock dotordoh/monitor "monitor mode is already running" || exit 0
 
 CLEANING_UP=0
 CONFIDENCE=1
+NO_UPSTREAM=0
 RETRIES=0
 
 MAX_RETRIES=$((
@@ -50,21 +51,33 @@ trap 'CONFIDENCE=1; RETRIES=0' HUP
 service_cleanup 0
 
 while true; do
-  if monitor_dot_is_available "$CONFIDENCE"; then
-    [ "$RETRIES" -lt 1 ] && RETRIES=0
-    RETRIES=$((RETRIES + 1))
+  case $(find_mode) in
+    doh)
+      [ "$RETRIES" -gt -1 ] && RETRIES=0
+      RETRIES=$((RETRIES - 1))
 
-    if [ "$RETRIES" -eq "$MONITOR_RETRIES" ]; then
-      monitor_run dot
-    fi
-  else
-    [ "$RETRIES" -gt -1 ] && RETRIES=0
-    RETRIES=$((RETRIES - 1))
+      [ "$RETRIES" -eq "-$MONITOR_RETRIES" ] && monitor_run doh
+      ;;
 
-    if [ "$RETRIES" -eq $(($MONITOR_RETRIES * -1)) ]; then
-      monitor_run doh
-    fi
-  fi
+    dot)
+      [ "$RETRIES" -lt 1 ] && RETRIES=0
+      RETRIES=$((RETRIES + 1))
+
+      [ "$RETRIES" -eq "$MONITOR_RETRIES" ] && monitor_run dot
+      ;;
+
+    *)
+      [ "$NO_UPSTREAM" -eq 0 ] && log "Upstream is unavailable"
+      NO_UPSTREAM=1
+
+      sleep 1
+
+      continue
+      ;;
+  esac
+
+  [ "$NO_UPSTREAM" -eq 1 ] && log "Upstream is available"
+  NO_UPSTREAM=0
 
   if [ "$RETRIES" -gt "$MAX_RETRIES" ]; then
     RETRIES=$MAX_RETRIES
