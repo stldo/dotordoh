@@ -139,16 +139,21 @@ Likewise, repeated failures eventually trigger a switch back to DoH.
 
 ## Requirements
 
-The project relies on standard OpenWrt utilities, including:
+- GNU netcat
+- https-dns-proxy
+- Stubby
 
-- https_dns_proxy
+`apk add https-dns-proxy netcat stubby`
+
+The project relies on other standard OpenWrt utilities, including:
+
+- awk
+- flock
+- ifup
 - ip
 - jsonfilter
-- logger
-- nc
 - nslookup
 - sleep
-- stubby
 - ubus
 - uci
 
