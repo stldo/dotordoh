@@ -90,6 +90,12 @@ reload_service() {
   ("'"$BIN_FILE"'" shield --wait) &
 }
 
+restart_service() {
+  stop_service
+  sleep 10
+  start_service
+}
+
 stop_service() {
   service https-dns-proxy stop 2>/dev/null
   service https-dns-proxy disable 2>/dev/null
