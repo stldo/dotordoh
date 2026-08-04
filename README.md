@@ -1,4 +1,4 @@
-# DoTorDoH
+# DoTorDoH [![License][1]][license]
 
 Automatically chooses the best encrypted DNS transport for OpenWrt.
 
@@ -165,5 +165,6 @@ The project relies on other standard OpenWrt utilities, including:
 
 Copyright (C) 2026-present stldo
 
+[1]: https://img.shields.io/github/license/stldo/dotordoh
 [license]: ./LICENSE
 [website]: https://stldo.com
