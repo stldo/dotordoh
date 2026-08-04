@@ -5,6 +5,7 @@ is_argument() {
 }
 
 ROOT_DIR=$(realpath "$(dirname "$0")/..") || exit 1
+SCRIPT_PATH=${SCRIPT_PATH:-$0}
 
 [ -f "$ROOT_DIR/bundle.conf" ] && . "$ROOT_DIR/bundle.conf"
 [ -f "$ROOT_DIR/script.conf" ] && . "$ROOT_DIR/script.conf"
@@ -48,7 +49,10 @@ parse_arguments() {
 validate_route() {
   local default_route route routes_tempfile usage
 
-  if [ -n "$ROUTE" ] && [ -f "$ROUTES_DIR/$ROUTE.sh" ]; then
+  if [ -z "${ARG_HELP:-}" ] && \
+    [ -n "$ROUTE" ] && \
+    [ -f "$ROUTES_DIR/$ROUTE.sh" ]
+  then
     return 0
   fi
 
@@ -81,7 +85,12 @@ validate_route() {
   usage="${usage#|}"
   [ -n "$default_route" ] && usage="[$usage]"
 
-  printf 'Usage: %s %s\n' "$0" "$usage"
+  if [ -f "$ROOT_DIR/src/usage.sh" ]; then
+    . "$ROOT_DIR/src/usage.sh"
+    printf '\n\n'
+  fi
+
+  printf 'Usage: %s %s\n' "${SCRIPT_PATH:-$0}" "$usage"
 
   return 1
 }
@@ -101,8 +110,8 @@ require realpath
 require sort
 require tr
 
-validate_route || exit $?
 parse_arguments "$@"
+validate_route || exit $?
 
 unset ROUTES_DIR
 unset -f is_argument parse_arguments validate_route

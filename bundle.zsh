@@ -3,6 +3,8 @@
 set -euo pipefail
 
 ROOT_DIR=$(realpath .) || exit 1
+SCRIPT_PATH=$0
+
 DIST_DIR="$ROOT_DIR/dist"
 ROUTES_DIR="$ROOT_DIR/src/script"
 
@@ -191,9 +193,15 @@ process_routes() {
     usage=""
   fi
 
+  VARS_TEMPLATE+=$'if [ -n "${ARG_HELP:-}" ]; then\n'
+  VARS_TEMPLATE+=$'  ROUTE=""\n'
+  VARS_TEMPLATE+=$'elif is_argument "${1:-}"; then\n'
+  VARS_TEMPLATE+="  ROUTE=\"$default_route\""$'\n'
+  VARS_TEMPLATE+=$'else\n'
+  VARS_TEMPLATE+=$'  ROUTE="${1:-"'"$default_route"$'"}"\n'
+  VARS_TEMPLATE+=$'fi\n\n'
+
   ROUTES_TEMPLATE+=$'case "$ROUTE" in\n'
-  VARS_TEMPLATE+='is_argument "${1:-}" && ROUTE="'"$default_route"'" '
-  VARS_TEMPLATE+=$'|| ROUTE="${1:-'"$default_route"$'}"\n\n'
 
   routes=$(find "$ROUTES_DIR" -type f -name '*.sh' | sort) || return 1
 
@@ -220,7 +228,14 @@ process_routes() {
   usage="${usage#|}"
   [ -n "$default_route" ] && usage="[$usage]"
 
-  ROUTES_TEMPLATE+="*)"$'\nprintf '"\$'Usage: %s $usage\n' "
+  ROUTES_TEMPLATE+=$'*)\n'
+
+  if [ -f "$ROOT_DIR/src/usage.sh" ]; then
+    ROUTES_TEMPLATE+="printf \$'$(. $ROOT_DIR/src/usage.sh)\n\nUsage: %s $usage\n' "
+  else
+    ROUTES_TEMPLATE+="printf \$'Usage: %s $usage\n' "
+  fi
+
   ROUTES_TEMPLATE+=$'"$0"\n;;\nesac\n'
 }
 
