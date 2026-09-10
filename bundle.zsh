@@ -1,273 +1,231 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 
 set -euo pipefail
+setopt null_glob
 
-ROOT_DIR=$(realpath .) || exit 1
-SCRIPT_PATH=$0
+ROOT_DIR=${0:A:h}
 
+[ -f "$ROOT_DIR/.env" ] && . "$ROOT_DIR/.env"
+
+BUILTIN_DIR="$ROOT_DIR/src/builtin"
+COMMAND_DIR="$ROOT_DIR/src/commands"
 DIST_DIR="$ROOT_DIR/dist"
-ROUTES_DIR="$ROOT_DIR/src/script"
 
-case "${1:-build}" in
-  run)
-    shift
-    . src/main.sh
-    ;;
-  build)
-    ;;
-  *)
-    printf 'Usage: %s [build|run]\n' "$0" >&2
-    exit 1
-    ;;
-esac
-
-[ -f "$ROOT_DIR/bundle.conf" ] && . "$ROOT_DIR/bundle.conf"
-[ -f "$ROOT_DIR/script.conf" ] && . "$ROOT_DIR/script.conf"
+typeset -A COMMAND HEAD IMPORTED REQUIRED VISITING
 
 BIN_FILE="/usr/bin/dotordoh"
 DAEMON_FILE="/etc/init.d/dotordoh"
 
-IMPORT_TEMPLATE=""
-ROUTE_REQUIRE_TEMPLATE=""
-ROUTE_TEMPLATE=""
-ROUTES_TEMPLATE=""
-VARS_TEMPLATE=$'parse_arguments "$@"\n\n'
-
-HELPERS_TEMPLATE='
-is_argument() {
-  case "$1" in --*) return 0 ;; *) return 1 ;; esac
-}
-
-parse_arguments() {
-  local argument key value
-
-  for argument in "$@"; do
-    key="${argument#--}"
-
-    [ "$key" = "$argument" ] && continue
-
-    case "$argument" in
-      --*=*)
-        key="${key%%=*}"
-        value="${argument#--*=}"
-        ;;
-      --*)
-        key="${argument#--}"
-        value="1"
-        ;;
-    esac
-
-    case "$key" in *[!0-9a-z_]*|"") continue ;; esac
-    key=$(printf '\''%s'\'' "$key" | tr '\''a-z'\'' '\''A-Z'\'')
-    eval "ARG_$key=\"\$value\""
-  done
-}'"
-$(find "$ROOT_DIR/src/builtin" -type f ! -name import.sh -print0 |
+HEAD[builtin]=$(
+  find "$BUILTIN_DIR" -type f -print0 |
   sort -z |
-  xargs -0 awk 'FNR==1 && /^#!/{next}{print}')
-"
+  xargs -0 awk 'FNR==1 && /^#!/{next}{print}'
+)
 
-DAEMON_TEMPLATE='
-USE_PROCD=1
-START=99
-STOP=01
+HEAD[core]=""
 
-start_service() {
-  procd_open_instance main
+HEAD[utils]=""
 
-  procd_set_param command "'"$BIN_FILE"'" monitor
+HEAD[variables]='
+ARGUMENTS=""
+COMMAND=""
 
-  procd_set_param respawn 3600 5 5
-  procd_set_param term_timeout 5
-  procd_set_param stdout 1
-  procd_set_param stderr 1
-
-  procd_close_instance
-
-  ("'"$BIN_FILE"'" shield --boot --wait) &
-}
-
-reload_service() {
-  procd_send_signal dotordoh main HUP 2>/dev/null || true
-  ("'"$BIN_FILE"'" shield --wait) &
-}
-
-restart_service() {
-  stop_service
-  sleep 10
-  start_service
-}
-
-stop_service() {
-  service https-dns-proxy stop 2>/dev/null
-  service https-dns-proxy disable 2>/dev/null
-  service stubby stop 2>/dev/null
-  service stubby disable 2>/dev/null
-}
-'
-
-if [ -f "$ROOT_DIR/script.conf" ]; then
-  VARS_TEMPLATE+="$(<"$ROOT_DIR"/script.conf)"$'\n\n'
-fi
-
-declare -A IMPORTED
-declare -A REQUIRED
-declare -A VISITING
-
-die() {
-  printf $'%s\n' "$*" >&2
-  exit 1
-}
-
-process_route() {
-  local content file line trimmed_line value
-
-  file=$(realpath "$1") 2>/dev/null || die "Cannot resolve $1"
-
-  [[ -n ${VISITING[$file]:-} ]] && die "Circular import: $file"
-  VISITING[$file]=1
-
-  content=""
-
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    trimmed_line=${line#"${line%%[![:space:]]*}"}
-
-    case "$trimmed_line" in
-      \#!*) ;;
-      import\ *)
-        value=${trimmed_line#import }
-
-        [[ $value == \"*\" ]] && value=${value#\"} && value=${value%\"}
-        [[ $value == \'*\' ]] && value=${value#\'} && value=${value%\'}
-
-        process_route "$ROOT_DIR/src/$value.sh"
-        ;;
-      require\ *)
-        value=${trimmed_line#require }
-
-        [[ $value == \"*\" ]] && value=${value#\"} && value=${value%\"}
-        [[ $value == \'*\' ]] && value=${value#\'} && value=${value%\'}
-
-        [[ -n ${REQUIRED[$value]:-} ]] && continue
-
-        ROUTE_REQUIRE_TEMPLATE+="require ${value}"$'\n'
-        REQUIRED[$value]=1
+for argument in "$@"; do
+  if [ -z "$ARGUMENTS" ]; then
+    case "$argument" in
+      ""|*[!a-z]*)
         ;;
       *)
-        [[ -z ${IMPORTED[$file]:-} ]] && content="$content\n$line"
+        COMMAND="${COMMAND:+$COMMAND }$argument"
+        continue
         ;;
     esac
-  done <"$file"
+  fi
 
-  unset -v "VISITING[$file]"
+  ARGUMENTS="$ARGUMENTS $(
+    printf "'\''"
+    printf '\''%s'\'' "$argument" | sed "s/'\''/'\''\\\\'\'''\''/g"
+    printf "'\''"
+  )"
+done
 
+unset argument
+readonly COMMAND
+'
+
+if [ -f "$ROOT_DIR/.env" ]; then
+  HEAD[variables]+=$'\n'"$(<"$ROOT_DIR"/.env)"$'\n'
+fi
+
+process_script() {
+  setopt local_options extended_glob
+
+  local \
+    body="" \
+    command \
+    command_path="${1#"$COMMAND_DIR/"}" \
+    file="${1:A}" \
+    key \
+    line \
+    path
+
+  [[ ${VISITING[$file]:-0} == 1 ]] && return 1
+  VISITING[$file]=1
+
+  if [[ "$command_path" != "$1" ]]; then
+    REQUIRED=()
+  fi
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      \#!*)
+        ;;
+
+      [[:space:]]#import\ *)
+        path=${line#*import }
+        path=${path//[\'\"]}
+
+        process_script "$ROOT_DIR/src/${path}.sh"
+        ;;
+
+      [[:space:]]#require\ *)
+        path=${line#*require }
+        path=${path//[\'\"]}
+
+        [[ "$path" == '$'* ]] && path="\"$path\""
+        [[ ${REQUIRED[$path]:-0} != 1 ]] && REQUIRED[$path]=1 || continue
+        ;;
+
+      *)
+        [[ -z ${IMPORTED[$file]:-} ]] || continue
+
+        body+="$line"$'\n'
+        ;;
+    esac
+  done < "$file"
+
+  unset "VISITING[$file]"
+
+  # Return early for already imported files, so require directives are processed
+  # in the loop.
   [[ -n ${IMPORTED[$file]:-} ]] && return
   IMPORTED[$file]=1
 
-  content=${content//\\n/$'\n'}
+  body="${body##$'\n'#}"
+  command="${command_path%.sh}"
 
-  while [ "$content" != "${content#[[:space:]]}" ]; do
-    content="${content#[[:space:]]}"
-  done
-
-  while [ "$content" != "${content%[[:space:]]}" ]; do
-    content="${content%[[:space:]]}"
-  done
-
-  if [ "$file" != "${file#"$ROUTES_DIR"}" ]; then
-    ROUTE_TEMPLATE+="$content"$'\n'
+  if [[ "$command_path" != "$1" ]]; then
+    COMMAND[$command]=""
+    for key in ${(k)REQUIRED}; do COMMAND[$command]+="require $key"$'\n'; done
+    (( ${#REQUIRED} )) && COMMAND[$command]+=$'\n'
+    COMMAND[$command]+="$body"
+  elif [[ "$file" == "$ROOT_DIR/src/core/"* ]]; then
+    HEAD[core]="${body}"$'\n'"${HEAD[core]}"
   else
-    IMPORT_TEMPLATE+=$'\n'"$content"$'\n'
+    HEAD[utils]="${body}"$'\n'"${HEAD[utils]}"
   fi
 }
 
-process_routes() {
-  local default_route route routes route_name usage
-
-  default_route=${DEFAULT_ROUTE:-main}
-
-  if [ -f "$ROUTES_DIR/$default_route.sh" ]; then
-    usage=${default_route:u}
-  else
-    default_route=""
-    usage=""
-  fi
-
-  VARS_TEMPLATE+=$'if [ -n "${ARG_HELP:-}" ]; then\n'
-  VARS_TEMPLATE+=$'  ROUTE=""\n'
-  VARS_TEMPLATE+=$'elif is_argument "${1:-}"; then\n'
-  VARS_TEMPLATE+="  ROUTE=\"$default_route\""$'\n'
-  VARS_TEMPLATE+=$'else\n'
-  VARS_TEMPLATE+=$'  ROUTE="${1:-"'"$default_route"$'"}"\n'
-  VARS_TEMPLATE+=$'fi\n\n'
-
-  ROUTES_TEMPLATE+=$'case "$ROUTE" in\n'
-
-  routes=$(find "$ROUTES_DIR" -type f -name '*.sh' | sort) || return 1
-
-  while IFS= read -r route; do
-    route_name=${route#"$ROUTES_DIR"/}
-    route_name=${route_name%.sh}
-
-    if [ "$route_name" != "$default_route" ]; then
-      usage="$usage|$route_name"
-    fi
-
-    process_route "$route"
-
-    ROUTES_TEMPLATE+="$route_name)"$'\n'
-    ROUTES_TEMPLATE+="$ROUTE_REQUIRE_TEMPLATE"$'\n'
-    ROUTES_TEMPLATE+="$ROUTE_TEMPLATE"
-    ROUTES_TEMPLATE+=$';;\n\n'
-
-    REQUIRED=()
-    ROUTE_REQUIRE_TEMPLATE=""
-    ROUTE_TEMPLATE=""
-  done <<<"$routes"
-
-  usage="${usage#|}"
-  [ -n "$default_route" ] && usage="[$usage]"
-
-  ROUTES_TEMPLATE+=$'*)\n'
-
-  if [ -f "$ROOT_DIR/src/usage.sh" ]; then
-    ROUTES_TEMPLATE+="printf \$'$(. $ROOT_DIR/src/usage.sh)\n\nUsage: %s $usage\n' "
-  else
-    ROUTES_TEMPLATE+="printf \$'Usage: %s $usage\n' "
-  fi
-
-  ROUTES_TEMPLATE+=$'"$0"\n;;\nesac\n'
-}
-
-process_routes
-
-VARS_TEMPLATE+="unset -f is_argument parse_arguments"$'\n\nreadonly ROUTE'
-
-DAEMON_TEMPLATE+=$'\n'"service_triggers() {"$'\n'
-DAEMON_TEMPLATE+="  procd_open_trigger"$'\n'
-
-for interface in ${=WAN_INTERFACES}; do
-  DAEMON_TEMPLATE+="  procd_add_reload_interface_trigger \"$interface\""$'\n'
+for command_file in "$COMMAND_DIR"/**/*.sh; do
+  process_script "$command_file"
 done
 
-DAEMON_TEMPLATE+="  procd_close_trigger"$'\n'
-DAEMON_TEMPLATE+="}"$'\n'
-
-rm -rf "$DIST_DIR"
 mkdir -p "$(dirname "$DIST_DIR$BIN_FILE")"
 mkdir -p "$(dirname "$DIST_DIR$DAEMON_FILE")"
 
-printf $'#!/bin/ash\n%s\n%s\n%s\n%s' \
-  "$HELPERS_TEMPLATE" \
-  "$VARS_TEMPLATE" \
-  "$IMPORT_TEMPLATE" \
-  "$ROUTES_TEMPLATE" \
-> "$DIST_DIR$BIN_FILE"
+{
+  printf '%s\n' '#!/bin/ash'
+  printf '%s\n' "$HEAD[builtin]"
+  printf '%s\n' "$HEAD[variables]"
+  printf '%s%s' "$HEAD[utils]" "$HEAD[core]"
 
-printf $'#!/bin/sh /etc/rc.common\n%s' \
-  "$DAEMON_TEMPLATE" \
-> "$DIST_DIR$DAEMON_FILE"
+  printf '%s\n' 'case "$(printf "%s" "$COMMAND" | tr " " "/")" in'
+
+  for command in ${(ok)COMMAND}; do
+    [[ "$command" == \[*\] ]] && continue
+
+    printf '  %s\n' "${(qq)command})"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ -n "$line" ]]; then
+        printf '    %s\n' "$line"
+      else
+        printf '\n'
+      fi
+    done < <(printf '%s' "${COMMAND[$command]}")
+
+    printf '    %s\n\n' ';;'
+  done
+
+  if (( ${+COMMAND[[root]]} )); then
+    printf '  %s\n' "'')"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ -n "$line" ]]; then
+        printf '    %s\n' "$line"
+      else
+        printf '\n'
+      fi
+    done < <(printf '%s' "${COMMAND[[root]]}")
+
+    printf '    %s\n\n' ';;'
+  fi
+
+  printf '  %s\n' '*)'
+  printf '    %s\n' 'error "'\''$COMMAND'\'' is not supported"'
+  printf '    %s\n\n' ';;'
+  printf '%s\n' 'esac'
+} >| "$DIST_DIR$BIN_FILE"
+
+{
+  printf '%s\n' '#!/bin/sh /etc/rc.common'
+
+  printf '\n%s\n' 'USE_PROCD=1'
+  printf '%s\n' 'START=99'
+  printf '%s\n' 'STOP=01'
+
+  printf '\n%s\n' 'start_service() {'
+  printf '  %s\n' 'procd_open_instance main'
+
+  printf '\n  %s\n' "procd_set_param command \"$BIN_FILE\" monitor"
+
+  printf '\n  %s\n' 'procd_set_param respawn 3600 5 5'
+  printf '  %s\n' 'procd_set_param term_timeout 5'
+  printf '  %s\n' 'procd_set_param stdout 1'
+  printf '  %s\n' 'procd_set_param stderr 1'
+
+  printf '\n  %s\n' 'procd_close_instance'
+
+  printf '\n  %s\n' "(\"$BIN_FILE\" shield -r -w) &"
+  printf '%s\n' '}'
+
+  printf '\n%s\n' 'reload_service() {'
+  printf '  %s\n' 'procd_send_signal dotordoh main HUP 2>/dev/null || true'
+  printf '  %s\n' "(\"$BIN_FILE\" shield -w) &"
+  printf '%s\n' '}'
+
+  printf '\n%s\n' 'restart_service() {'
+  printf '  %s\n' 'stop_service'
+  printf '  %s\n' 'sleep 10'
+  printf '  %s\n' 'start_service'
+  printf '%s\n' '}'
+
+  printf '\n%s\n' 'service_triggers() {'
+  printf '  %s\n' 'procd_open_trigger'
+
+  for interface in ${=WAN_INTERFACES}; do
+    printf '  %s\n' "procd_add_reload_interface_trigger \"$interface\""
+  done
+
+  printf '  %s\n' 'procd_close_trigger'
+  printf '%s\n' '}'
+
+  printf '\n%s\n' 'stop_service() {'
+  printf '  %s\n' 'service https-dns-proxy stop 2>/dev/null'
+  printf '  %s\n' 'service https-dns-proxy disable 2>/dev/null'
+  printf '  %s\n' 'service stubby stop 2>/dev/null'
+  printf '  %s\n' 'service stubby disable 2>/dev/null'
+  printf '%s\n' '}'
+} >| "$DIST_DIR$DAEMON_FILE"
 
 chmod +x "$DIST_DIR$BIN_FILE" "$DIST_DIR$DAEMON_FILE"
 
-printf "Bundle created successfully\n"
+print "Bundle was created successfully"

@@ -4,9 +4,12 @@ import core/monitor/is_dot
 import core/monitor/run
 import utils/has_upstream_reachability
 import utils/lock
+import utils/parse_options
 import utils/service/shutdown
 
 require sleep
+
+parse_options
 
 lock dotordoh/monitor "monitor mode is already running" || exit 0
 

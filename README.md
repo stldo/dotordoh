@@ -27,17 +27,16 @@ git clone https://github.com/stldo/dotordoh
 cd dotordoh
 ```
 
-Build the standalone script:
+Build the standalone command:
 
 ```sh
 ./bundle.zsh
 ```
 
-Or execute directly from the source tree:
-
-```sh
-./bundle.zsh run
-```
+The bundler requires Zsh and can be invoked from any working directory. It
+creates `dist/usr/bin/dotordoh` for OpenWrt's `ash` and
+`dist/etc/init.d/dotordoh` for procd. Imports are included once, with each
+command checking its own direct and transitive requirements.
 
 ## Usage
 
@@ -51,8 +50,6 @@ Available commands:
 |-------|-------------|
 | `monitor` | Automatically switch between DoT and DoH |
 | `shield` | Advertise router DNS on IPv4 and IPv6 |
-
-If no command is specified, the default command is `monitor`.
 
 ## Commands
 
@@ -90,11 +87,11 @@ Example:
 dotordoh shield
 ```
 
-Disabling PeerDNS requires the WAN interfaces to be reloaded. Pass `--boot` to
+Disabling PeerDNS requires the WAN interfaces to be reloaded. Pass `-r` to
 do this automatically, which is useful when running `shield` at boot:
 
 ```sh
-dotordoh shield --boot
+dotordoh shield -r
 ```
 
 Waits until the local resolver instance is ready to accept DNS queries. It
@@ -105,12 +102,12 @@ the command exits with an error.
 Example:
 
 ```sh
-dotordoh shield --wait
+dotordoh shield -w
 ```
 
 ## Configuration
 
-Configuration can be customized through `script.conf`.
+Configuration can be customized through `.env`.
 
 Example:
 
