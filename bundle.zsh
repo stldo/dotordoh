@@ -202,10 +202,12 @@ mkdir -p "$(dirname "$DIST_DIR$DAEMON_FILE")"
   printf '  %s\n' "(\"$BIN_FILE\" shield -w) &"
   printf '%s\n' '}'
 
-  printf '\n%s\n' 'restart_service() {'
-  printf '  %s\n' 'stop_service'
+  printf '\n%s\n' 'restart() {'
+  printf '  %s\n' "trap '' TERM"
+  printf '  %s\n' 'stop "$@"'
+  printf '  %s\n' "trap - TERM"
   printf '  %s\n' 'sleep 10'
-  printf '  %s\n' 'start_service'
+  printf '  %s\n' 'start "$@"'
   printf '%s\n' '}'
 
   printf '\n%s\n' 'service_triggers() {'
