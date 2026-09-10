@@ -7,6 +7,7 @@ import utils/uci/add
 import utils/uci/add_list
 import utils/uci/commit
 import utils/uci/delete
+import utils/uci/exists
 import utils/uci/set
 
 require https-dns-proxy

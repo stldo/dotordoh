@@ -2,7 +2,7 @@
 
 require nc
 
-find_mode() {
+monitor_find_mode() {
   local ip
 
   for ip in $BOOTSTRAP_SERVER; do
