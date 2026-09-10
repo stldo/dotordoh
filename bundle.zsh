@@ -194,12 +194,12 @@ mkdir -p "$(dirname "$DIST_DIR$DAEMON_FILE")"
 
   printf '\n  %s\n' 'procd_close_instance'
 
-  printf '\n  %s\n' "(\"$BIN_FILE\" shield -r -w) &"
+  printf '\n  %s\n' "\"$BIN_FILE\" shield -r -w"
   printf '%s\n' '}'
 
   printf '\n%s\n' 'reload_service() {'
   printf '  %s\n' 'procd_send_signal dotordoh main HUP 2>/dev/null || true'
-  printf '  %s\n' "(\"$BIN_FILE\" shield -w) &"
+  printf '  %s\n' "\"$BIN_FILE\" shield -w"
   printf '%s\n' '}'
 
   printf '\n%s\n' 'restart() {'
