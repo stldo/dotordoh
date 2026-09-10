@@ -9,11 +9,15 @@ import utils/uci/get
 import utils/uci/set
 
 require ifup
+require jsonfilter
+require ubus
 
 shield_configure() {
   local \
+    active_wan_interfaces \
     changed \
     interface \
+    interface_is_up \
     ipv4_check \
     reload_wan \
     status \
@@ -27,6 +31,23 @@ shield_configure() {
   uci_dhcp_key="dhcp.${LAN_INTERFACE}"
   uci_dns_key="${uci_dhcp_key}.dns"
   uci_dns_value="$(uci_get "$uci_dns_key")"
+
+  if [ "$reload_wan" -eq 1 ]; then
+    for interface in $WAN_INTERFACES; do
+      uci_exists "network.$interface" || continue
+
+      interface_is_up=$(ubus call "network.interface.$interface" status \
+        2>/dev/null | jsonfilter -e '@.up')
+
+      [ "$interface_is_up" = "true" ] || continue
+
+      if [ -n "$active_wan_interfaces" ]; then
+        active_wan_interfaces="$active_wan_interfaces $interface"
+      else
+        active_wan_interfaces="$interface"
+      fi
+    done
+  fi
 
   log "Disabling PeerDNS..."
 
@@ -74,7 +95,7 @@ shield_configure() {
   if [ "$reload_wan" -eq 1 ]; then
     log "Reloading wan interfaces to apply PeerDNS changes..."
 
-    for interface in $WAN_INTERFACES; do
+    for interface in $active_wan_interfaces; do
       uci_exists "network.$interface" || continue
       ifup "$interface" >/dev/null 2>&1 || {
         ( error "Failed to bring up \"$interface\"" )
