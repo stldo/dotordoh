@@ -189,7 +189,6 @@ mkdir -p "$(dirname "$DIST_DIR$DAEMON_FILE")"
 
   printf '\n  %s\n' 'procd_set_param respawn 3600 5 5'
   printf '  %s\n' 'procd_set_param term_timeout 5'
-  printf '  %s\n' 'procd_set_param stdout 1'
   printf '  %s\n' 'procd_set_param stderr 1'
 
   printf '\n  %s\n' 'procd_close_instance'
