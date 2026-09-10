@@ -128,6 +128,24 @@ LAN_INTERFACE="lan"
 WAN_INTERFACES="wan wan6"
 ```
 
+### dnsmasq forwarding
+
+Configure dnsmasq to forward client DNS queries to the local DoT/DoH resolver.
+The forwarding port must match `LOCAL_PORT`:
+
+```sh
+uci set dhcp.@dnsmasq[0].noresolv='1'
+uci delete dhcp.@dnsmasq[0].server
+uci add_list dhcp.@dnsmasq[0].server='127.0.0.1#5453'
+uci commit dhcp
+
+/etc/init.d/dnsmasq restart
+```
+
+If `LOCAL_PORT` is changed, use the same port in the dnsmasq `server` value.
+The resolver services listen on IPv4 loopback, so do not add `::1#5453` unless
+you have separately configured them to listen on IPv6 loopback.
+
 ## Automatic mode
 
 Automatic mode first checks whether any configured upstream can be reached on
@@ -159,6 +177,7 @@ do not trigger the decision logic.
 The project relies on other standard OpenWrt utilities, including:
 
 - awk
+- dnsmasq
 - flock
 - ifup
 - ip
