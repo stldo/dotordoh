@@ -5,8 +5,8 @@ Automatically chooses the best encrypted DNS transport for OpenWrt.
 DoTorDoH uses `stubby` (DoT) and `https_dns_proxy` (DoH) to transparently switch
 between **DNS-over-TLS (DoT)** and **DNS-over-HTTPS (DoH)** depending on network
 conditions. On networks where outbound TCP/853 is blocked, it automatically
-falls back to DoH. When DoT becomes available again, it switches back once
-confidence in its availability is high enough.
+falls back to DoH. After a WAN interface change, it checks upstream reachability
+and selects DoT when TCP/853 is reachable; otherwise, it uses DoH.
 
 ## Features
 
@@ -58,10 +58,13 @@ If no command is specified, the default command is `monitor`.
 
 ### monitor
 
-Starts the resolver and continuously monitors DoT availability. When TCP port
-**853** is reachable, DoTorDoH uses DoT; otherwise, it switches to DoH.
-Switching only occurs after several consecutive successful or failed probes,
-which avoids oscillating between modes during unstable connectivity.
+Starts the resolver and evaluates DoT availability. It first checks for upstream
+reachability over TCP port **53**, then checks whether TCP port **853** is
+reachable.
+
+DoTorDoH uses DoT when it is reachable and otherwise switches to DoH. The
+decision runs once during application boot and whenever a WAN interface change
+with internet connectivity is detected.
 
 Example:
 
@@ -71,8 +74,8 @@ dotordoh monitor
 
 ### shield
 
-Configures the local OpenWrt DNS services to forward all client queries
-through the local resolver instance, overwriting WISP, ISP, and other DNS
+Configures the local OpenWrt DNS services to forward all client queries through
+the local resolver instance, overwriting WISP, ISP, and other DNS
 configurations.
 
 - Disables PeerDNS on WAN interfaces
@@ -95,9 +98,9 @@ dotordoh shield --boot
 ```
 
 Waits until the local resolver instance is ready to accept DNS queries. It
-repeatedly queries the local resolver until it becomes available, then
-exits successfully. If the resolver does not become ready within the timeout
-period, the command exits with an error.
+repeatedly queries the local resolver until it becomes available, then exits
+successfully. If the resolver does not become ready within the timeout period,
+the command exits with an error.
 
 Example:
 
@@ -113,6 +116,8 @@ Example:
 
 ```sh
 LOCAL_PORT=5453
+MONITOR_REACHABILITY_ATTEMPTS=12
+MONITOR_REACHABILITY_DELAY=5
 
 DOH_DOMAIN="cloudflare-dns.com"
 DOH_PATH="/dns-query"
@@ -125,17 +130,23 @@ WAN_INTERFACES="wan wan6"
 
 ## Automatic mode
 
-Automatic mode works by periodically checking whether a TCP connection to the
-configured DoT endpoint can be established. Each successful probe increases
-confidence that DoT is available; each failed probe decreases it.
+Automatic mode first checks whether any configured upstream can be reached on
+TCP port **53**. If upstream reachability is available, it checks whether a TCP
+connection to a configured DoT endpoint (port 853) can be established. If
+reachable, DoT is used; otherwise, it falls back to DoH (port 443).
 
-As confidence increases:
+Mode selection runs:
 
-- Probes become less frequent
-- Unnecessary network traffic is reduced
-- Transient failures are ignored
+- Once during application boot
+- When a WAN interface change with internet connectivity is detected (e.g.
+  connecting to a new Wi-Fi or cable network)
 
-Likewise, repeated failures eventually trigger a switch back to DoH.
+After each WAN interface change, the monitor retries the reachability check for
+a short, bounded period while the connection is coming up. If reachability is
+not established, it waits for the next WAN interface change.
+
+Network/interface changes that do not result in an available internet connection
+do not trigger the decision logic.
 
 ## Requirements
 
