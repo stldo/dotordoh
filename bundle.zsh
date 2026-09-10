@@ -220,7 +220,7 @@ mkdir -p "$(dirname "$DIST_DIR$DAEMON_FILE")"
   printf '  %s\n' 'procd_close_trigger'
   printf '%s\n' '}'
 
-  printf '\n%s\n' 'stop_service() {'
+  printf '\n%s\n' 'service_stopped() {'
   printf '  %s\n' 'service https-dns-proxy stop 2>/dev/null'
   printf '  %s\n' 'service https-dns-proxy disable 2>/dev/null'
   printf '  %s\n' 'service stubby stop 2>/dev/null'
