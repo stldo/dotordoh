@@ -3,17 +3,23 @@
 require tr
 
 parse_options() {
-  local OPTARG OPTIND=1 key option spec="${1:-}" value
+  local OPTARG OPTIND=1 command key option spec="${1:-}" value
+
+  if [ -n "$COMMAND" ]; then
+    command=" in '$COMMAND'"
+  else
+    command=""
+  fi
 
   eval "set -- $ARGUMENTS"
 
   while getopts ":$spec" option; do
     case "$option" in
       \?)
-        error "'$COMMAND' doesn't support option '-$OPTARG'"
+        error "Option '-$OPTARG' is not supported${command}"
         ;;
       :)
-        error "'$COMMAND' option '-$OPTARG' requires a value"
+        error "Option '-$OPTARG' requires a value${command}"
         ;;
       *)
         key=$(printf '%s' "$option" | tr 'a-z' 'A-Z')
@@ -28,5 +34,5 @@ parse_options() {
 
   shift $((OPTIND - 1))
 
-  [ "$#" -eq 0 ] || error "'$COMMAND' doesn't support positional arguments"
+  [ "$#" -eq 0 ] || error "Positional arguments are not supported${command}"
 }
