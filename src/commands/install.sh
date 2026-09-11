@@ -8,32 +8,59 @@ import utils/uci/exists
 
 require chmod
 require cp
+require dirname
 require id
 require ifup
 require jsonfilter
 require mkdir
 require mv
+require rm
 require ubus
 
 parse_options
 
-APP_BIN="/usr/bin/dotordoh"
-INIT_BIN="/etc/init.d/dotordoh"
-TMP_INIT_BIN="$INIT_BIN.$$"
-
 [ "$(id -u)" -eq 0 ] || error "Install must run as root"
 
+APP_BIN="/usr/bin/dotordoh"
+INIT_BIN="/etc/init.d/dotordoh"
+RESTORE_RUNNING_INIT=0
+SOURCE_BIN="$0"
+TMP_APP_BIN="$APP_BIN.$$"
+TMP_INIT_BIN="$INIT_BIN.$$"
+
+case "$SOURCE_BIN" in
+  */*)
+    ;;
+  *)
+    SOURCE_BIN="$(command -v "$SOURCE_BIN")" ||
+      error "Cannot locate the running command"
+    ;;
+esac
+
+restore_service() {
+  local status=$?
+
+  rm -f "$TMP_APP_BIN" "$TMP_INIT_BIN" 2>/dev/null || true
+
+  if [ "$status" -ne 0 ] && [ "$RESTORE_RUNNING_INIT" -eq 1 ]; then
+    "$INIT_BIN" start >/dev/null 2>&1 || true
+  fi
+
+  exit "$status"
+}
+
+trap restore_service EXIT
+
 if [ -x "$INIT_BIN" ] && "$INIT_BIN" running >/dev/null 2>&1; then
+  RESTORE_RUNNING_INIT=1
   "$INIT_BIN" stop
 fi
 
 mkdir -p "$(dirname "$APP_BIN")"
 
-if [ "$0" != "$APP_BIN" ]; then
-  cp "$0" "$APP_BIN"
-fi
-
-chmod +x "$APP_BIN"
+cp "$SOURCE_BIN" "$TMP_APP_BIN"
+chmod +x "$TMP_APP_BIN"
+mv "$TMP_APP_BIN" "$APP_BIN"
 
 mkdir -p "$(dirname "$INIT_BIN")"
 
@@ -107,7 +134,7 @@ for interface in $WAN_INTERFACES; do
   log "Refreshing wan interface \"$interface\"..."
 
   if ! ifup "$interface" >/dev/null 2>&1; then
-    ( error "Failed to bring up \"$interface\"" )
+    ( log "WARN" "Failed to bring up \"$interface\"" )
   fi
 done
 
