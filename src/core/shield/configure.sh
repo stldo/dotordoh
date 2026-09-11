@@ -3,31 +3,16 @@
 import utils/get_ipv4
 import utils/get_ula
 import utils/service/restart
-import utils/uci/add_list
 import utils/uci/commit
-import utils/uci/delete
 import utils/uci/exists
-import utils/uci/get
+import utils/uci/replace_list
 import utils/uci/set
 
 shield_configure() {
-  local \
-    changed \
-    interface \
-    ipv4_check \
-    status \
-    uci_dhcp_key \
-    uci_dns_key \
-    uci_dns_value
+  local changed=0 interface status=0 uci_dhcp_key="dhcp.${LAN_INTERFACE}"
 
   [ -n "$(state lan_ipv4)" ] || state lan_ipv4 "$(get_ipv4)"
   [ -n "$(state lan_ula)" ] || state lan_ula "$(get_ula)"
-
-  changed=0
-  status=0
-  uci_dhcp_key="dhcp.${LAN_INTERFACE}"
-  uci_dns_key="${uci_dhcp_key}.dns"
-  uci_dns_value="$(uci_get "$uci_dns_key")"
 
   log "Disabling PeerDNS..."
 
@@ -38,18 +23,17 @@ shield_configure() {
 
   log "Configuring DHCPv4 DNS..."
 
-  ipv4_check=$(set -f; set -- $uci_dns_value; printf '%s' "$#:${1-}")
-
-  if [ "$ipv4_check" != "1:$(state lan_ipv4)" ]; then
-    uci_delete "$uci_dns_key" && changed=1
-    uci_add_list "$uci_dns_key" "$(state lan_ipv4)" && changed=1
-  fi
+  uci_replace_list "${uci_dhcp_key}.dhcp_option" "6," "6,$(state lan_ipv4)" \
+    && changed=1
 
   log "Configuring DHCPv6 / RDNSS..."
 
   uci_set "${uci_dhcp_key}.dhcpv6" "server" && changed=1
+  uci_set "${uci_dhcp_key}.dns_service" "0" && changed=1
   uci_set "${uci_dhcp_key}.ra" "server" && changed=1
-  uci_set "${uci_dhcp_key}.ra_dns" "$(state lan_ula)" && changed=1
+  uci_set "${uci_dhcp_key}.ra_dns" "1" && changed=1
+
+  uci_replace_list "${uci_dhcp_key}.dns" "" "$(state lan_ula)" && changed=1
 
   if [ "$changed" -eq 0 ]; then
     log "Configuration already up-to-date"
