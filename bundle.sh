@@ -7,6 +7,27 @@ ROOT_DIR=${0:A:h}
 
 [ -f "$ROOT_DIR/.env" ] && . "$ROOT_DIR/.env"
 
+RELEASE_TAGS=("${(@f)$(git -C "$ROOT_DIR" tag --points-at HEAD)}")
+VALID_RELEASE_TAGS=()
+
+for release_tag in "${RELEASE_TAGS[@]}"; do
+  if [[ "$release_tag" =~ '^v[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+    VALID_RELEASE_TAGS+=("$release_tag")
+  fi
+done
+
+if (( ${#VALID_RELEASE_TAGS} == 1 )); then
+  APP_VERSION=${VALID_RELEASE_TAGS[1]}
+else
+  APP_VERSION=$(git -C "$ROOT_DIR" rev-parse HEAD)
+fi
+
+WORKTREE_STATUS=$(git -C "$ROOT_DIR" status --porcelain --untracked-files=all)
+
+if [[ -n "$WORKTREE_STATUS" ]]; then
+  APP_VERSION+="-dirty"
+fi
+
 BUILTIN_DIR="$ROOT_DIR/src/builtin"
 COMMAND_DIR="$ROOT_DIR/src/commands"
 DIST_BIN="$ROOT_DIR/dist/dotordoh"
@@ -53,6 +74,8 @@ readonly COMMAND
 if [ -f "$ROOT_DIR/.env" ]; then
   HEAD[variables]+=$'\n'"$(<"$ROOT_DIR"/.env)"$'\n'
 fi
+
+HEAD[variables]+=$'\n'"APP_VERSION=\"$APP_VERSION\""$'\n'
 
 process_script() {
   setopt local_options extended_glob
@@ -133,7 +156,7 @@ mkdir -p "$(dirname "$DIST_BIN")"
   printf '%s\n\n' '#!/bin/ash'
   printf '%s\n' 'set -eu'
   printf '%s\n' "$HEAD[builtin]"
-  printf '%s\n' "$HEAD[variables]"
+  printf '\n%s\n' "$HEAD[variables]"
   printf '%s%s' "$HEAD[utils]" "$HEAD[core]"
 
   printf '%s\n' 'case "$(printf "%s" "$COMMAND" | tr " " "/")" in'
