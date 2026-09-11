@@ -9,12 +9,9 @@ ROOT_DIR=${0:A:h}
 
 BUILTIN_DIR="$ROOT_DIR/src/builtin"
 COMMAND_DIR="$ROOT_DIR/src/commands"
-DIST_DIR="$ROOT_DIR/dist"
+DIST_BIN="$ROOT_DIR/dist/dotordoh"
 
 typeset -A COMMAND HEAD IMPORTED REQUIRED VISITING
-
-BIN_FILE="/usr/bin/dotordoh"
-DAEMON_FILE="/etc/init.d/dotordoh"
 
 HEAD[builtin]=$(
   find "$BUILTIN_DIR" -type f -print0 |
@@ -130,11 +127,11 @@ for command_file in "$COMMAND_DIR"/**/*.sh; do
   process_script "$command_file"
 done
 
-mkdir -p "$(dirname "$DIST_DIR$BIN_FILE")"
-mkdir -p "$(dirname "$DIST_DIR$DAEMON_FILE")"
+mkdir -p "$(dirname "$DIST_BIN")"
 
 {
-  printf '%s\n' '#!/bin/ash'
+  printf '%s\n\n' '#!/bin/ash'
+  printf '%s\n' 'set -eu'
   printf '%s\n' "$HEAD[builtin]"
   printf '%s\n' "$HEAD[variables]"
   printf '%s%s' "$HEAD[utils]" "$HEAD[core]"
@@ -173,60 +170,8 @@ mkdir -p "$(dirname "$DIST_DIR$DAEMON_FILE")"
   printf '    %s\n' 'error "'\''$COMMAND'\'' is not supported"'
   printf '    %s\n\n' ';;'
   printf '%s\n' 'esac'
-} >| "$DIST_DIR$BIN_FILE"
+} >| "$DIST_BIN"
 
-{
-  printf '%s\n' '#!/bin/sh /etc/rc.common'
-
-  printf '\n%s\n' 'USE_PROCD=1'
-  printf '%s\n' 'START=99'
-  printf '%s\n' 'STOP=01'
-
-  printf '\n%s\n' 'start_service() {'
-  printf '  %s\n' 'procd_open_instance main'
-
-  printf '\n  %s\n' "procd_set_param command \"$BIN_FILE\" monitor"
-
-  printf '\n  %s\n' 'procd_set_param respawn 3600 5 5'
-  printf '  %s\n' 'procd_set_param term_timeout 5'
-  printf '  %s\n' 'procd_set_param stderr 1'
-
-  printf '\n  %s\n' 'procd_close_instance'
-
-  printf '\n  %s\n' "\"$BIN_FILE\" shield -r -w"
-  printf '%s\n' '}'
-
-  printf '\n%s\n' 'reload_service() {'
-  printf '  %s\n' 'procd_send_signal dotordoh main HUP 2>/dev/null || true'
-  printf '  %s\n' "\"$BIN_FILE\" shield -w"
-  printf '%s\n' '}'
-
-  printf '\n%s\n' 'restart() {'
-  printf '  %s\n' "trap '' TERM"
-  printf '  %s\n' 'stop "$@"'
-  printf '  %s\n' "trap - TERM"
-  printf '  %s\n' 'sleep 10'
-  printf '  %s\n' 'start "$@"'
-  printf '%s\n' '}'
-
-  printf '\n%s\n' 'service_triggers() {'
-  printf '  %s\n' 'procd_open_trigger'
-
-  for interface in ${=WAN_INTERFACES}; do
-    printf '  %s\n' "procd_add_reload_interface_trigger \"$interface\""
-  done
-
-  printf '  %s\n' 'procd_close_trigger'
-  printf '%s\n' '}'
-
-  printf '\n%s\n' 'service_stopped() {'
-  printf '  %s\n' 'service https-dns-proxy stop 2>/dev/null'
-  printf '  %s\n' 'service https-dns-proxy disable 2>/dev/null'
-  printf '  %s\n' 'service stubby stop 2>/dev/null'
-  printf '  %s\n' 'service stubby disable 2>/dev/null'
-  printf '%s\n' '}'
-} >| "$DIST_DIR$DAEMON_FILE"
-
-chmod +x "$DIST_DIR$BIN_FILE" "$DIST_DIR$DAEMON_FILE"
+chmod +x "$DIST_BIN"
 
 print "Bundle was created successfully"

@@ -30,13 +30,21 @@ cd dotordoh
 Build the standalone command:
 
 ```sh
-./bundle.zsh
+./bundle.sh
 ```
 
+Install the bundled command on the router as root:
+
+```sh
+./dist/dotordoh install
+```
+
+Installation configures the shield, refreshes active WAN interfaces, and enables
+and starts the dotordoh service.
+
 The bundler requires Zsh and can be invoked from any working directory. It
-creates `dist/usr/bin/dotordoh` for OpenWrt's `ash` and
-`dist/etc/init.d/dotordoh` for procd. Imports are included once, with each
-command checking its own direct and transitive requirements.
+creates `dist/dotordoh` for OpenWrt's `ash`. Imports are included once, with
+each command checking its own direct and transitive requirements.
 
 ## Usage
 
@@ -48,6 +56,7 @@ Available commands:
 
 | Command | Description |
 |-------|-------------|
+| `install` | Install and initialize DoTorDoH |
 | `monitor` | Automatically switch between DoT and DoH |
 | `shield` | Advertise router DNS on IPv4 and IPv6 |
 
@@ -85,13 +94,6 @@ Example:
 
 ```sh
 dotordoh shield
-```
-
-Disabling PeerDNS requires the WAN interfaces to be reloaded. Pass `-r` to
-do this automatically, which is useful when running `shield` at boot:
-
-```sh
-dotordoh shield -r
 ```
 
 Waits until the local resolver instance is ready to accept DNS queries. It

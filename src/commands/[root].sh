@@ -19,8 +19,8 @@ printf "$USAGE_MESSAGE" \
 
 printf '\n\n%s\n' "Usage: $0 [COMMAND] [OPTIONS]"
 printf '\n%s\n' 'Commands:'
+printf '%s\n' '  install  Install and initialize DoTorDoH'
 printf '%s\n' '  monitor  Automatically switch between DoT and DoH'
 printf '%s\n' '  shield   Advertise router DNS on IPv4 and IPv6'
 printf '\n%s\n' 'Shield options:'
-printf '%s\n' '  -r       Reload WAN interfaces when configuration changes'
 printf '%s\n' '  -w       Wait for the local resolver to become ready'

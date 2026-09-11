@@ -1,5 +1,7 @@
 #!/bin/ash
 
+import utils/get_ipv4
+import utils/get_ula
 import utils/service/restart
 import utils/uci/add_list
 import utils/uci/commit
@@ -8,46 +10,24 @@ import utils/uci/exists
 import utils/uci/get
 import utils/uci/set
 
-require ifup
-require jsonfilter
-require ubus
-
 shield_configure() {
   local \
-    active_wan_interfaces \
     changed \
     interface \
-    interface_is_up \
     ipv4_check \
-    reload_wan \
     status \
     uci_dhcp_key \
     uci_dns_key \
     uci_dns_value
 
+  [ -n "$(state lan_ipv4)" ] || state lan_ipv4 "$(get_ipv4)"
+  [ -n "$(state lan_ula)" ] || state lan_ula "$(get_ula)"
+
   changed=0
-  reload_wan=${1:-0}
   status=0
   uci_dhcp_key="dhcp.${LAN_INTERFACE}"
   uci_dns_key="${uci_dhcp_key}.dns"
   uci_dns_value="$(uci_get "$uci_dns_key")"
-
-  if [ "$reload_wan" -eq 1 ]; then
-    for interface in $WAN_INTERFACES; do
-      uci_exists "network.$interface" || continue
-
-      interface_is_up=$(ubus call "network.interface.$interface" status \
-        2>/dev/null | jsonfilter -e '@.up')
-
-      [ "$interface_is_up" = "true" ] || continue
-
-      if [ -n "$active_wan_interfaces" ]; then
-        active_wan_interfaces="$active_wan_interfaces $interface"
-      else
-        active_wan_interfaces="$interface"
-      fi
-    done
-  fi
 
   log "Disabling PeerDNS..."
 
@@ -58,7 +38,7 @@ shield_configure() {
 
   log "Configuring DHCPv4 DNS..."
 
-  ipv4_check=$(set -f; set -- $uci_dns_value; printf '%s' "$#:$1")
+  ipv4_check=$(set -f; set -- $uci_dns_value; printf '%s' "$#:${1-}")
 
   if [ "$ipv4_check" != "1:$(state lan_ipv4)" ]; then
     uci_delete "$uci_dns_key" && changed=1
@@ -91,20 +71,6 @@ shield_configure() {
   [ "$status" -ne 0 ] && return 1
 
   service_restart dnsmasq odhcpd || return 1
-
-  if [ "$reload_wan" -eq 1 ]; then
-    log "Reloading wan interfaces to apply PeerDNS changes..."
-
-    for interface in $active_wan_interfaces; do
-      uci_exists "network.$interface" || continue
-      ifup "$interface" >/dev/null 2>&1 || {
-        ( error "Failed to bring up \"$interface\"" )
-        status=1
-      }
-    done
-
-    [ "$status" -ne 0 ] && return 1
-  fi
 
   log "Configuration applied successfully"
 }

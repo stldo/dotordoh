@@ -6,7 +6,7 @@ state() {
   esac
 
   if [ "$#" -eq 1 ]; then
-    eval "printf '%s' \"\$__STATE_$1\""
+    eval "printf '%s' \"\${__STATE_$1-}\""
   else
     eval "__STATE_$1=\"\$2\""
   fi
