@@ -1,5 +1,7 @@
 #!/bin/ash
 
+require tr
+
 parse_options() {
   local OPTARG OPTIND=1 key option spec="${1:-}" value
 

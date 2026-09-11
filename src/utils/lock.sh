@@ -1,6 +1,8 @@
 #!/bin/ash
 
+require dirname
 require flock
+require mkdir
 
 lock() {
   local lock_file
