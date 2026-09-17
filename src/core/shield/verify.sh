@@ -37,32 +37,32 @@ shield_verify() {
 
   for interface in $WAN_INTERFACES; do
     uci_exists "network.$interface" || continue
-    [ "$(uci_get "network.$interface.peerdns")" = "0" ]
+    [ "$(uci_get "network.$interface.peerdns")" = "0" ] && :
     assert $? "network.$interface.peerdns PeerDNS disabled"
   done
 
-  [ "$dns_options" = "6,$(state lan_ipv4)" ]
+  [ "$dns_options" = "6,$(state lan_ipv4)" ] && :
   assert $? "DHCPv4 advertises router DNS"
 
-  [ "$(uci_get "${uci_dhcp_key}.dhcpv6")" = "server" ]
+  [ "$(uci_get "${uci_dhcp_key}.dhcpv6")" = "server" ] && :
   assert $? "DHCPv6 server enabled"
 
-  [ "$(uci_get "${uci_dhcp_key}.ra")" = "server" ]
+  [ "$(uci_get "${uci_dhcp_key}.ra")" = "server" ] && :
   assert $? "Router Advertisements enabled"
 
-  [ "$(uci_get "${uci_dhcp_key}.ra_dns")" = "1" ]
+  [ "$(uci_get "${uci_dhcp_key}.ra_dns")" = "1" ] && :
   assert $? "IPv6 RDNSS advertises router ULA"
 
-  [ "$(uci_get "${uci_dhcp_key}.dns")" = "$(state lan_ula)" ]
+  [ "$(uci_get "${uci_dhcp_key}.dns")" = "$(state lan_ula)" ] && :
   assert $? "IPv6 RDNSS uses router ULA"
 
-  [ "$(uci_get "${uci_dhcp_key}.dns_service")" = "0" ]
+  [ "$(uci_get "${uci_dhcp_key}.dns_service")" = "0" ] && :
   assert $? "IPv6 automatic DNS advertisement disabled"
 
-  timeout 3 nslookup localhost "$(state lan_ipv4)" >/dev/null 2>&1
+  timeout 3 nslookup localhost "$(state lan_ipv4)" >/dev/null 2>&1 && :
   assert $? "dnsmasq is reachable and responding"
 
-  local_server_is_ready 3
+  local_server_is_ready 3 && :
   assert $? "dotordoh service is reachable and responding"
 
   if [ "$success" -eq 1 ]; then
