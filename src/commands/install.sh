@@ -1,7 +1,6 @@
 #!/bin/ash
 
 import core/shield/configure
-import core/shield/verify
 import utils/parse_options
 import utils/service/powerup
 import utils/uci/exists
@@ -15,6 +14,7 @@ require jsonfilter
 require mkdir
 require mv
 require rm
+require sleep
 require ubus
 
 parse_options
@@ -51,16 +51,10 @@ restore_service() {
 
 trap restore_service EXIT
 
-if [ -x "$INIT_BIN" ] && "$INIT_BIN" running >/dev/null 2>&1; then
-  RESTORE_RUNNING_INIT=1
-  "$INIT_BIN" stop
-fi
-
 mkdir -p "$(dirname "$APP_BIN")"
 
 cp "$SOURCE_BIN" "$TMP_APP_BIN"
 chmod +x "$TMP_APP_BIN"
-mv "$TMP_APP_BIN" "$APP_BIN"
 
 mkdir -p "$(dirname "$INIT_BIN")"
 
@@ -82,7 +76,10 @@ mkdir -p "$(dirname "$INIT_BIN")"
 
   printf '\n  %s\n' 'procd_close_instance'
 
-  printf '\n  %s\n' '"/usr/bin/dotordoh" shield -w'
+  printf '\n%s\n' '}'
+
+  printf '\n%s\n' 'service_started() {'
+  printf '  %s\n' '"/usr/bin/dotordoh" shield -w'
   printf '%s\n' '}'
 
   printf '\n%s\n' 'reload_service() {'
@@ -117,6 +114,25 @@ mkdir -p "$(dirname "$INIT_BIN")"
 } > "$TMP_INIT_BIN"
 
 chmod +x "$TMP_INIT_BIN"
+
+if [ -x "$INIT_BIN" ] && "$INIT_BIN" running >/dev/null 2>&1; then
+  RESTORE_RUNNING_INIT=1
+
+  "$INIT_BIN" stop || true
+
+  remaining=10
+
+  while "$INIT_BIN" running >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+    sleep 1
+    remaining=$((remaining - 1))
+  done
+
+  if "$INIT_BIN" running >/dev/null 2>&1; then
+    error "Failed to stop dotordoh service"
+  fi
+fi
+
+mv "$TMP_APP_BIN" "$APP_BIN"
 mv "$TMP_INIT_BIN" "$INIT_BIN"
 
 shield_configure
@@ -139,4 +155,3 @@ for interface in $WAN_INTERFACES; do
 done
 
 service_powerup dotordoh
-shield_verify
