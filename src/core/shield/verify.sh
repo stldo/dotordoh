@@ -8,7 +8,7 @@ import utils/uci/get
 require nslookup
 
 shield_verify() {
-  local success uci_dhcp_key
+  local dns_options success uci_dhcp_key
 
   success=1
   uci_dhcp_key="dhcp.${LAN_INTERFACE}"
@@ -24,13 +24,24 @@ shield_verify() {
 
   log "Checking shield configuration..."
 
+  dns_options=$(
+    options=$(uci -q show "${uci_dhcp_key}.dhcp_option" 2>/dev/null || true)
+
+    eval "set -- ${options#*=}"
+    for option in "$@"; do
+      case "$option" in
+        6,*) printf '%s\n' "$option" ;;
+      esac
+    done
+  )
+
   for interface in $WAN_INTERFACES; do
     uci_exists "network.$interface" || continue
     [ "$(uci_get "network.$interface.peerdns")" = "0" ]
     assert $? "network.$interface.peerdns PeerDNS disabled"
   done
 
-  [ "$(uci_get "${uci_dhcp_key}.dhcp_option")" = "6,$(state lan_ipv4)" ]
+  [ "$dns_options" = "6,$(state lan_ipv4)" ]
   assert $? "DHCPv4 advertises router DNS"
 
   [ "$(uci_get "${uci_dhcp_key}.dhcpv6")" = "server" ]
